@@ -55,7 +55,19 @@ fun DeadlineBuddyApp() {
         }
 
         "dashboard" -> {
-            DashboardScreen()
+            DashboardScreen(
+                onAssignmentClick = {
+                    screen = "assignment"
+                }
+            )
+        }
+
+        "assignment" -> {
+            AddAssignmentScreen(
+                onBackClick = {
+                    screen = "dashboard"
+                }
+            )
         }
     }
 }
@@ -316,7 +328,9 @@ fun ProfileInput(
 // --------------------------------------------------
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onAssignmentClick: () -> Unit
+) {
 
     val pink = Color(0xFFFFF0F6)
     val darkPink = Color(0xFFE85D8E)
@@ -344,11 +358,35 @@ fun DashboardScreen() {
             )
         )
 
-        DashboardButton("📝", "Add Task")
-        DashboardButton("📚", "Add Assignment")
-        DashboardButton("🗓️", "Calendar")
-        DashboardButton("⏰", "Due Assignments")
-        DashboardButton("🔔", "Reminder")
+        DashboardButton(
+            emoji = "📝",
+            title = "Add Task",
+            onClick = {}
+        )
+
+        DashboardButton(
+            emoji = "📚",
+            title = "Add Assignment",
+            onClick = onAssignmentClick
+        )
+
+        DashboardButton(
+            emoji = "🗓️",
+            title = "Calendar",
+            onClick = {}
+        )
+
+        DashboardButton(
+            emoji = "⏰",
+            title = "Due Assignments",
+            onClick = {}
+        )
+
+        DashboardButton(
+            emoji = "🔔",
+            title = "Reminder",
+            onClick = {}
+        )
     }
 }
 
@@ -360,13 +398,12 @@ fun DashboardScreen() {
 @Composable
 fun DashboardButton(
     emoji: String,
-    title: String
+    title: String,
+    onClick: () -> Unit
 ) {
 
     Button(
-        onClick = {
-            // Functionality will be added next
-        },
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
