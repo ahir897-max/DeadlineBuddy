@@ -1,24 +1,55 @@
 package com.example.deadlinebuddy
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
+
+private val Pink = Color(0xFFFFE5F0)
+private val DarkPink = Color(0xFFCC5D91)
+private val Purple = Color(0xFFEDE7FF)
+private val Cream = Color(0xFFFFF8E8)
+private val TextDark = Color(0xFF493746)
+private val SoftBackground = Color(0xFFFFF9FC)
+
+private data class BuddyBadge(
+    val title: String,
+    val emoji: String,
+    val requiredCount: Int,
+    val description: String
+)
+
+private val buddyBadges = listOf(
+    BuddyBadge("Early Bird", "🌱", 1, "Save your first assignment"),
+    BuddyBadge("Task Explorer", "🐾", 5, "Save 5 assignments"),
+    BuddyBadge("Study Star", "⭐", 7, "Save 7 assignments"),
+    BuddyBadge("Super Planner", "🎀", 9, "Save 9 assignments"),
+    BuddyBadge("Deadline Buddy", "🏆", 10, "Save 10 assignments")
+)
 
 @Composable
 fun CuteDashboardScreen(
@@ -31,557 +62,445 @@ fun CuteDashboardScreen(
     onAutoTaskBreakdown: () -> Unit,
     onProfile: () -> Unit
 ) {
+    val context = LocalContext.current
 
-    LazyColumn(
+    val prefs = remember {
+        context.getSharedPreferences(
+            "DeadlineBuddyProfile",
+            Context.MODE_PRIVATE
+        )
+    }
+
+    var assignmentCount by remember {
+        mutableIntStateOf(prefs.getInt("assignmentCount", 0))
+    }
+
+    var profileImagePath by remember {
+        mutableStateOf(prefs.getString("profileImage", "") ?: "")
+    }
+
+    DisposableEffect(prefs) {
+        val listener =
+            SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
+                when (key) {
+                    "assignmentCount" -> {
+                        assignmentCount = sharedPrefs.getInt(
+                            "assignmentCount",
+                            0
+                        )
+                    }
+
+                    "profileImage" -> {
+                        profileImagePath =
+                            sharedPrefs.getString("profileImage", "") ?: ""
+                    }
+                }
+            }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+        assignmentCount = prefs.getInt("assignmentCount", 0)
+        profileImagePath = prefs.getString("profileImage", "") ?: ""
+
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    val profileBitmap = remember(profileImagePath) {
+        try {
+            if (profileImagePath.isBlank()) {
+                null
+            } else {
+                if (profileImagePath.startsWith("content://")) {
+                    context.contentResolver
+                        .openInputStream(Uri.parse(profileImagePath))
+                        ?.use { input ->
+                            BitmapFactory.decodeStream(input)
+                        }
+                } else {
+                    val imageFile = File(profileImagePath)
+                    if (imageFile.exists()) {
+                        BitmapFactory.decodeFile(profileImagePath)
+                    } else {
+                        null
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    val unlockedCount = buddyBadges.count {
+        assignmentCount >= it.requiredCount
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF7FA))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(15.dp)
-    ) {
-
-        // TITLE
-
-        item {
-
-            Text(
-                text = "Deadline Buddy ♥",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF5795C8),
-                modifier = Modifier.padding(
-                    start = 8.dp,
-                    top = 8.dp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Let's make your deadlines stress-free 🌸",
-                fontSize = 17.sp,
-                color = Color(0xFF604B58),
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-
-
-        // PROFILE + HELLO KITTY
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                Card(
-                    modifier = Modifier
-                        .weight(0.85f)
-                        .height(225.dp)
-                        .clickable {
-                            onProfile()
-                        },
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFE6EF)
-                    )
-                ) {
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-
-                        Text(
-                            text = "Hello, $userName! ♥",
-                            fontSize = 21.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB94E78),
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = "My Profile",
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF704A59)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "Tap to view\nor edit profile ♡",
-                            fontSize = 14.sp,
-                            color = Color(0xFF856873),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-
-
-                Card(
-                    modifier = Modifier
-                        .weight(1.15f)
-                        .height(225.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFE6EF)
-                    )
-                ) {
-
-                    Image(
-                        painter = painterResource(
-                            id = R.drawable.hello_kitty_dashboard
-                        ),
-                        contentDescription = "Hello Kitty Dashboard",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-
-
-        // STREAK
-
-        item {
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(25.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFE1EA)
-                )
-            ) {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(15.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Image(
-                        painter = painterResource(
-                            id = R.drawable.cute_cat_mascot
-                        ),
-                        contentDescription = "Cute Cat",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(62.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column {
-
-                        Text(
-                            text = "Study Streak 🔥",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8A4F67)
-                        )
-
-                        Text(
-                            text = "Start today and build your streak!",
-                            fontSize = 14.sp,
-                            color = Color(0xFF765E68)
-                        )
-
-                        Text(
-                            text = "🏆 On-time badge available",
-                            fontSize = 13.sp,
-                            color = Color(0xFF9A7180)
-                        )
-                    }
-                }
-            }
-        }
-
-
-        // FIRST ROW
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                CuteButton(
-                    icon = "＋",
-                    title = "Add Task",
-                    background = Color(0xFFFFDCE8),
-                    modifier = Modifier.weight(1f),
-                    onClick = onAddTask
-                )
-
-                CuteButton(
-                    icon = "▣",
-                    title = "Add Assignment",
-                    background = Color(0xFFE8DDF8),
-                    modifier = Modifier.weight(1f),
-                    onClick = onAddAssignment
-                )
-            }
-        }
-
-
-        // SECOND ROW
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                CuteButton(
-                    icon = "▦",
-                    title = "Calendar",
-                    background = Color(0xFFDDEFFC),
-                    modifier = Modifier.weight(1f),
-                    onClick = onCalendar
-                )
-
-                CuteButton(
-                    icon = "✓",
-                    title = "Due Assignments",
-                    background = Color(0xFFFFE8C7),
-                    modifier = Modifier.weight(1f),
-                    onClick = onDueAssignments
-                )
-            }
-        }
-
-
-        // THIRD ROW
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                CuteButton(
-                    icon = "♧",
-                    title = "Reminder",
-                    background = Color(0xFFE1F3E7),
-                    modifier = Modifier.weight(1f),
-                    onClick = onReminder
-                )
-
-                CuteButton(
-                    icon = "✦",
-                    title = "Auto Task\nBreakdown",
-                    background = Color(0xFFFFE4B8),
-                    modifier = Modifier.weight(1f),
-                    onClick = onAutoTaskBreakdown
-                )
-            }
-        }
-
-
-        // SMART FEATURES TITLE
-
-        item {
-
-            Text(
-                text = "♡ Smart Study Buddy",
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF704A59),
-                modifier = Modifier.padding(
-                    start = 6.dp,
-                    top = 5.dp
-                )
-            )
-        }
-
-
-        // SELF LEARNING
-
-        item {
-
-            SmartFeatureCard(
-                title = "Self-Learning Estimates",
-                description = "The app compares estimated and actual study time and can improve future suggestions.",
-                emoji = "🧠"
-            )
-        }
-
-
-        // SMART DIFFICULTY
-
-        item {
-
-            SmartFeatureCard(
-                title = "Smart Difficulty Detection",
-                description = "Task keywords help estimate effort automatically. Research papers and lab reports need more effort than simple quiz prep.",
-                emoji = "✨"
-            )
-        }
-
-
-        // AUTO BREAKDOWN
-
-        item {
-
-            SmartFeatureCard(
-                title = "Automatic Task Breakdown",
-                description = "Large assignments can be divided into daily goals such as outline, draft, review and submission.",
-                emoji = "🌸"
-            )
-        }
-
-
-        // BADGES
-
-        item {
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(25.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF0D9)
-                )
-            ) {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Image(
-                        painter = painterResource(
-                            id = R.drawable.cute_cat_mascot
-                        ),
-                        contentDescription = "Cute Cat Mascot",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(60.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column {
-
-                        Text(
-                            text = "🏆 Badges",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF795548)
-                        )
-
-                        Text(
-                            text = "🌸 Early Bird\n🔥 3-Day Streak\n⭐ 7-Day Streak\n💗 On-Time Student",
-                            fontSize = 14.sp,
-                            color = Color(0xFF806A73)
-                        )
-                    }
-                }
-            }
-        }
-
-
-        // TODAY'S TASKS
-
-        item {
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFEAF1)
-                )
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        Image(
-                            painter = painterResource(
-                                id = R.drawable.cute_cat_mascot
-                            ),
-                            contentDescription = "Cute Cat",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(55.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Text(
-                            text = "Today's Tasks ♥",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF704A59)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Add a task and your study buddy will keep track of it ♡",
-                        fontSize = 14.sp,
-                        color = Color(0xFF856873)
-                    )
-                }
-            }
-        }
-
-
-        item {
-
-            Text(
-                text = "Small steps every day lead to big dreams ♡",
-                fontSize = 15.sp,
-                color = Color(0xFF9B687A),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 5.dp,
-                        bottom = 25.dp
-                    )
-            )
-        }
-    }
-}
-
-
-// ======================================================
-// CUTE BUTTON
-// ======================================================
-
-@Composable
-fun CuteButton(
-    icon: String,
-    title: String,
-    background: Color,
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
-
-    Card(
-        modifier = modifier
-            .height(135.dp)
-            .clickable {
-                onClick()
-            },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = background
-        )
-    ) {
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(13.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = icon,
-                    fontSize = 27.sp,
-                    color = Color(0xFF76566B)
-                )
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Image(
-                    painter = painterResource(
-                        id = R.drawable.cute_cat_mascot
-                    ),
-                    contentDescription = "Cute Cat Mascot",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(43.dp)
-                )
-            }
-
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF604B58)
-            )
-        }
-    }
-}
-
-
-// ======================================================
-// SMART FEATURE CARD
-// ======================================================
-
-@Composable
-fun SmartFeatureCard(
-    title: String,
-    description: String,
-    emoji: String
-) {
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(25.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+            .background(SoftBackground)
+            .verticalScroll(rememberScrollState())
+            .padding(18.dp)
     ) {
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(15.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Hello, $userName! ♡",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Ready to make today productive?",
+                    fontSize = 14.sp,
+                    color = Color(0xFF8D7887)
+                )
+            }
+
+            IconButton(
+                onClick = onProfile,
+                modifier = Modifier
+                    .size(58.dp)
+                    .background(Pink, CircleShape)
+            ) {
+                if (profileBitmap != null) {
+                    Image(
+                        bitmap = profileBitmap.asImageBitmap(),
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        tint = DarkPink,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Pink
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Your little study buddy 🐱",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "One small step at a time. You got this!",
+                        fontSize = 14.sp,
+                        color = TextDark
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = onAddAssignment,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DarkPink
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null
+                        )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Text("Add assignment")
+                    }
+                }
+
+                Text("🎀", fontSize = 42.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "Your dashboard",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextDark
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            DashboardTile(
+                title = "Assignments",
+                subtitle = "$assignmentCount saved",
+                emoji = "📚",
+                color = Purple,
+                modifier = Modifier.weight(1f),
+                onClick = onAddAssignment
+            )
+
+            DashboardTile(
+                title = "Reminders",
+                subtitle = "Stay on time",
+                emoji = "🔔",
+                color = Cream,
+                modifier = Modifier.weight(1f),
+                onClick = onReminder
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            DashboardTile(
+                title = "Calendar",
+                subtitle = "View your dates",
+                emoji = "📅",
+                color = Cream,
+                modifier = Modifier.weight(1f),
+                onClick = onCalendar
+            )
+
+            DashboardTile(
+                title = "Due tasks",
+                subtitle = "Check deadlines",
+                emoji = "⏰",
+                color = Purple,
+                modifier = Modifier.weight(1f),
+                onClick = onDueAssignments
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        DashboardTile(
+            title = "Task breakdown",
+            subtitle = "Plan your study steps",
+            emoji = "📝",
+            color = Pink,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onAutoTaskBreakdown
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // NEW DAILY TO-DO CARD
+        DashboardTile(
+            title = "Daily To-do",
+            subtitle = "Add and complete your daily tasks",
+            emoji = "🎀",
+            color = Color(0xFFFFDCEB),
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onAddTask
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "My Badges 🏆",
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark
+                )
 
-            Image(
-                painter = painterResource(
-                    id = R.drawable.cute_cat_mascot
-                ),
-                contentDescription = "Cute Cat Mascot",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(60.dp)
+                Text(
+                    text = "Every assignment brings you closer!",
+                    fontSize = 13.sp,
+                    color = Color(0xFF8D7887)
+                )
+            }
+
+            Text(
+                text = "$unlockedCount / ${buddyBadges.size}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = DarkPink
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        buddyBadges.forEach { badge ->
+            val unlocked = assignmentCount >= badge.requiredCount
+
+            BadgeCard(
+                badge = badge,
+                unlocked = unlocked,
+                assignmentCount = assignmentCount
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Keep going, you're doing great! 🌷",
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            fontSize = 13.sp,
+            color = Color(0xFF9A8292)
+        )
+    }
+}
+
+@Composable
+private fun BadgeCard(
+    badge: BuddyBadge,
+    unlocked: Boolean,
+    assignmentCount: Int
+) {
+    val progress = (
+            assignmentCount.toFloat() / badge.requiredCount.toFloat()
+            ).coerceIn(0f, 1f)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (unlocked) Pink else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (unlocked) badge.emoji else "🔒",
+                fontSize = 30.sp
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "$emoji  $title",
-                    fontSize = 18.sp,
+                    text = badge.title,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF704A59)
+                    color = TextDark
                 )
 
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
-                    text = description,
-                    fontSize = 13.sp,
-                    color = Color(0xFF806A73),
-                    lineHeight = 18.sp
+                    text = if (unlocked) {
+                        "Unlocked! ${badge.description} ♡"
+                    } else {
+                        "${badge.description} ($assignmentCount/${badge.requiredCount})"
+                    },
+                    fontSize = 12.sp,
+                    color = Color(0xFF8D7887)
+                )
+
+                if (!unlocked) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = DarkPink,
+                        trackColor = Color(0xFFF1D9E5)
+                    )
+                }
+            }
+
+            if (unlocked) {
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Unlocked",
+                    tint = DarkPink
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DashboardTile(
+    title: String,
+    subtitle: String,
+    emoji: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = color
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(emoji, fontSize = 28.sp)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark
+            )
+
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                color = Color(0xFF8D7887)
+            )
         }
     }
 }
